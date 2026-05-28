@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>شاشة الباترول</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  background: #000; color: #fff; user-select: none;
+}
+body.day { background: #0d1117; color: #fff; }
+body.night { background: #000; color: #fff; }
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 1fr;
+  width: 100vw; height: 100vh;
+  gap: 6px; padding: 6px;
+  direction: ltr; /* لتثبيت ترتيب الأعمدة: يسار-وسط-يمين */
+}
+
+/* Tire panels */
+.tire-panel {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 6px;
+}
+.tire {
+  background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 3px solid rgba(255,255,255,0.12);
+  border-radius: 16px;
+  padding: 10px;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  direction: rtl;
+}
+.tire.warning {
+  border-color: #ffb800;
+  box-shadow: 0 0 30px rgba(255,184,0,0.5), inset 0 0 30px rgba(255,184,0,0.1);
+  background: linear-gradient(135deg, rgba(255,184,0,0.15), rgba(255,184,0,0.03));
+}
+.tire.danger {
+  border-color: #ff2d20;
+  box-shadow: 0 0 40px rgba(255,45,32,0.7), inset 0 0 30px rgba(255,45,32,0.15);
+  background: linear-gradient(135deg, rgba(255,45,32,0.2), rgba(255,45,32,0.03));
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 40px rgba(255,45,32,0.7), inset 0 0 30px rgba(255,45,32,0.15); }
+  50% { box-shadow: 0 0 70px rgba(255,45,32,1), inset 0 0 40px rgba(255,45,32,0.25); }
+}
+.tire-label {
+  font-size: 18px;
+  font-weight: 700;
+  opacity: 0.95;
+  margin-bottom: 4px;
+  letter-spacing: 0.5px;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+.tire-value {
+  font-size: clamp(48px, 7vw, 90px);
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(255,255,255,0.15);
+}
+.tire.warning .tire-value { color: #ffb800; text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(255,184,0,0.5); }
+.tire.danger .tire-value { color: #ff2d20; text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(255,45,32,0.7); }
+
+.tire-unit {
+  font-size: 16px;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-top: 2px;
+  letter-spacing: 1px;
+}
+.tire-temp {
+  font-size: 14px;
+  opacity: 0.7;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+/* Center panel */
+.center-panel {
+  display: flex; flex-direction: column;
+  justify-content: space-between; align-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 10px 8px;
+  position: relative;
+  direction: rtl;
+}
+.top-bar {
+  width: 100%;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 0 8px;
+  direction: ltr;
+}
+.status-item {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.4);
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.status-dot {
+  display: inline-block; width: 10px; height: 10px;
+  border-radius: 50%;
+  background: #ff2d20;
+  box-shadow: 0 0 8px rgba(255,45,32,0.5);
+}
+.status-dot.connected {
+  background: #00d959;
+  box-shadow: 0 0 10px #00d959;
+}
+
+#clock { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+
+.speedometer {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  width: 100%;
+  padding: 10px 0;
+}
+.speed-value {
+  font-size: clamp(140px, 26vw, 280px);
+  font-weight: 900;
+  line-height: 0.85;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.9), 0 0 60px rgba(0,212,255,0.3);
+  transition: all 0.2s;
+  letter-spacing: -2px;
+}
+.speed-value.over-limit {
+  color: #ff2d20;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.9), 0 0 60px rgba(255,45,32,0.8);
+  animation: speedPulse 0.6s infinite;
+}
+@keyframes speedPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+.speed-unit {
+  font-size: 26px;
+  font-weight: 800;
+  opacity: 0.85;
+  margin-top: 0px;
+  letter-spacing: 3px;
+}
+.speed-limit-indicator {
+  margin-top: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.7;
+  padding: 4px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+}
+
+.bottom-controls {
+  width: 100%;
+  display: flex; justify-content: space-around; align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+.btn {
+  background: rgba(255,255,255,0.08);
+  border: 2px solid rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  flex: 1;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn:hover, .btn:active { background: rgba(255,255,255,0.18); }
+.btn.primary {
+  background: #0a84ff;
+  border-color: #0a84ff;
+  box-shadow: 0 2px 12px rgba(10,132,255,0.4);
+}
+.btn.primary:hover { background: #0066cc; }
+.btn.connected {
+  background: #00a843;
+  border-color: #00d959;
+  box-shadow: 0 2px 12px rgba(0,217,89,0.4);
+}
+
+/* Modal */
+.modal-bg {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: none; justify-content: center; align-items: center;
+  z-index: 100; padding: 20px;
+}
+.modal-bg.open { display: flex; }
+.modal {
+  background: #1c1c1e;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 18px;
+  padding: 20px;
+  max-width: 560px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal h2 { margin-bottom: 14px; font-size: 22px; font-weight: 800; }
+.modal-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-row label { font-size: 15px; font-weight: 600; opacity: 0.9; }
+.modal-row input, .modal-row select {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  width: 130px;
+  text-align: center;
+  font-family: inherit;
+}
+.modal-actions {
+  display: flex; gap: 10px; margin-top: 18px; justify-content: flex-end;
+}
+.unit-toggle {
+  display: flex; background: rgba(255,255,255,0.05);
+  border-radius: 10px; padding: 3px;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.unit-toggle button {
+  background: transparent; border: none; color: #fff;
+  padding: 8px 12px; border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0.55;
+  transition: all 0.2s;
+}
+.unit-toggle button.active {
+  background: #0a84ff;
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(10,132,255,0.4);
+}
+
+/* Manual input */
+.manual-input {
+  width: 110px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid rgba(255,255,255,0.3);
+  color: inherit;
+  font-size: clamp(48px, 7vw, 90px);
+  font-weight: 900;
+  text-align: center;
+  font-family: inherit;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+}
+.manual-input:focus { outline: none; border-bottom-color: #0a84ff; }
+.manual-input::-webkit-inner-spin-button,
+.manual-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Bright sunlight mode boost */
+body.bright {
+  background: #000 !important;
+}
+body.bright .tire { border-width: 4px; }
+body.bright .speed-value { text-shadow: 0 4px 20px rgba(0,0,0,1), 0 0 60px rgba(255,255,255,0.2); }
+
+@media (max-height: 500px) {
+  .speed-value { font-size: clamp(120px, 22vw, 220px); }
+  .tire-value { font-size: clamp(42px, 6vw, 72px); }
+  .tire-label { font-size: 16px; }
+  .btn { padding: 10px 10px; font-size: 13px; }
+  .top-bar { font-size: 13px; }
+  .status-item { padding: 4px 8px; }
+}
+</style>
+</head>
+<body class="night">
+
+<div class="app">
+  <!-- اليسار: الإطارات اليسرى (السائق) -->
+  <div class="tire-panel">
+    <div class="tire" id="tire-fl">
+      <div class="tire-label">أمامي يسار</div>
+      <div class="tire-value" data-tire="fl">--</div>
+      <div class="tire-unit" data-unit-display>PSI</div>
+      <div class="tire-temp" data-temp="fl"></div>
+    </div>
+    <div class="tire" id="tire-rl">
+      <div class="tire-label">خلفي يسار</div>
+      <div class="tire-value" data-tire="rl">--</div>
+      <div class="tire-unit" data-unit-display>PSI</div>
+      <div class="tire-temp" data-temp="rl"></div>
+    </div>
+  </div>
+
+  <!-- المنتصف: السرعة -->
+  <div class="center-panel">
+    <div class="top-bar">
+      <div class="status-item">
+        <span class="status-dot" id="gps-dot"></span>
+        <span>GPS</span>
+      </div>
+      <div id="clock">--:--</div>
+      <div class="status-item">
+        <span>TPMS</span>
+        <span class="status-dot" id="bt-dot"></span>
+      </div>
+    </div>
+
+    <div class="speedometer">
+      <div class="speed-value" id="speed">0</div>
+      <div class="speed-unit" id="speed-unit">KM/H</div>
+      <div class="speed-limit-indicator" id="speed-limit-display"></div>
+    </div>
+
+    <div class="bottom-controls">
+      <button class="btn" id="btn-bluetooth">🔗 TPMS</button>
+      <button class="btn primary" id="btn-gps">📍 GPS</button>
+      <button class="btn" id="btn-settings">⚙️ إعدادات</button>
+    </div>
+  </div>
+
+  <!-- اليمين: الإطارات اليمنى (الراكب) -->
+  <div class="tire-panel">
+    <div class="tire" id="tire-fr">
+      <div class="tire-label">أمامي يمين</div>
+      <div class="tire-value" data-tire="fr">--</div>
+      <div class="tire-unit" data-unit-display>PSI</div>
+      <div class="tire-temp" data-temp="fr"></div>
+    </div>
+    <div class="tire" id="tire-rr">
+      <div class="tire-label">خلفي يمين</div>
+      <div class="tire-value" data-tire="rr">--</div>
+      <div class="tire-unit" data-unit-display>PSI</div>
+      <div class="tire-temp" data-temp="rr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-bg" id="settings-modal">
+  <div class="modal">
+    <h2>الإعدادات</h2>
+
+    <div class="modal-row">
+      <label>وحدة الضغط</label>
+      <div class="unit-toggle" id="unit-toggle">
+        <button data-unit="PSI" class="active">PSI</button>
+        <button data-unit="BAR">BAR</button>
+        <button data-unit="kPa">kPa</button>
+        <button data-unit="kgf">kgf/cm²</button>
+      </div>
+    </div>
+
+    <div class="modal-row">
+      <label>وحدة السرعة</label>
+      <div class="unit-toggle" id="speed-unit-toggle">
+        <button data-sunit="kmh" class="active">كم/س</button>
+        <button data-sunit="mph">ميل/س</button>
+      </div>
+    </div>
+
+    <div class="modal-row">
+      <label>الضغط الموصى به (PSI)</label>
+      <input type="number" id="recommended-pressure" value="33" min="20" max="60" step="0.5">
+    </div>
+
+    <div class="modal-row">
+      <label>حد التحذير %</label>
+      <input type="number" id="warning-threshold" value="10" min="5" max="25" step="1">
+    </div>
+
+    <div class="modal-row">
+      <label>حد السرعة</label>
+      <input type="number" id="speed-limit" value="120" min="0" max="300" step="5">
+    </div>
+
+    <div class="modal-row">
+      <label>الوضع</label>
+      <div class="unit-toggle">
+        <button id="theme-night" class="active">ليلي</button>
+        <button id="theme-day">نهاري</button>
+        <button id="theme-bright">شمس قوية</button>
+      </div>
+    </div>
+
+    <div class="modal-row">
+      <label>إدخال يدوي للإطارات</label>
+      <button class="btn" id="btn-manual" style="flex:0 0 auto; max-width:140px;">تفعيل</button>
+    </div>
+
+    <div class="modal-row">
+      <label>وضع المحاكاة (للتجربة)</label>
+      <button class="btn" id="btn-demo" style="flex:0 0 auto; max-width:140px;">تشغيل</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn primary" id="btn-close-settings">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  pressureUnit: 'PSI',
+  speedUnit: 'kmh',
+  recommendedPSI: 33,
+  warningThreshold: 10,
+  speedLimit: 120,
+  theme: 'night',
+  gpsActive: false,
+  btConnected: false,
+  manualMode: false,
+  demoActive: false,
+  currentSpeed: 0,
+  tires: {
+    fl: { psi: null, temp: null },
+    fr: { psi: null, temp: null },
+    rl: { psi: null, temp: null },
+    rr: { psi: null, temp: null }
+  },
+  gpsWatchId: null,
+  btDevice: null,
+  demoInterval: null
+};
+
+// Load saved settings
+try {
+  const saved = localStorage.getItem('patrol-settings');
+  if (saved) {
+    const s = JSON.parse(saved);
+    Object.assign(state, {
+      pressureUnit: s.pressureUnit || 'PSI',
+      speedUnit: s.speedUnit || 'kmh',
+      recommendedPSI: s.recommendedPSI || 33,
+      warningThreshold: s.warningThreshold || 10,
+      speedLimit: s.speedLimit || 120,
+      theme: s.theme || 'night'
+    });
+  }
+} catch(e) {}
+
+function saveSettings() {
+  try {
+    localStorage.setItem('patrol-settings', JSON.stringify({
+      pressureUnit: state.pressureUnit,
+      speedUnit: state.speedUnit,
+      recommendedPSI: state.recommendedPSI,
+      warningThreshold: state.warningThreshold,
+      speedLimit: state.speedLimit,
+      theme: state.theme
+    }));
+  } catch(e) {}
+}
+
+const PSI_TO = {
+  PSI: v => v,
+  BAR: v => v * 0.0689476,
+  kPa: v => v * 6.89476,
+  kgf: v => v * 0.0703069
+};
+const UNIT_LABEL = { PSI: 'PSI', BAR: 'BAR', kPa: 'kPa', kgf: 'kgf/cm²' };
+
+function convertPressure(psi, unit) {
+  if (psi == null) return null;
+  const v = PSI_TO[unit](psi);
+  if (unit === 'kPa') return v.toFixed(0);
+  if (unit === 'PSI') return v.toFixed(1);
+  return v.toFixed(2);
+}
+
+function convertFromUnit(value, unit) {
+  if (unit === 'PSI') return value;
+  if (unit === 'BAR') return value / 0.0689476;
+  if (unit === 'kPa') return value / 6.89476;
+  if (unit === 'kgf') return value / 0.0703069;
+  return value;
+}
+
+function render() {
+  ['fl','fr','rl','rr'].forEach(pos => {
+    const el = document.querySelector(`[data-tire="${pos}"]`);
+    const tempEl = document.querySelector(`[data-temp="${pos}"]`);
+    const psi = state.tires[pos].psi;
+    const temp = state.tires[pos].temp;
+
+    if (state.manualMode) {
+      if (!el.querySelector('input')) {
+        const cur = psi != null ? convertPressure(psi, state.pressureUnit) : '';
+        el.innerHTML = `<input type="number" class="manual-input" data-manual="${pos}" value="${cur}" step="0.5" inputmode="decimal">`;
+        const inp = el.querySelector('input');
+        inp.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) { state.tires[pos].psi = null; }
+          else {
+            state.tires[pos].psi = convertFromUnit(val, state.pressureUnit);
+          }
+          updateTireStatus(pos);
+        });
+      }
+    } else {
+      el.textContent = psi != null ? convertPressure(psi, state.pressureUnit) : '--';
+    }
+
+    tempEl.textContent = temp != null ? `${temp.toFixed(0)}°C` : '';
+    updateTireStatus(pos);
+  });
+
+  document.querySelectorAll('[data-unit-display]').forEach(e => e.textContent = UNIT_LABEL[state.pressureUnit]);
+
+  const displaySpeed = state.speedUnit === 'mph'
+    ? Math.round(state.currentSpeed * 0.621371)
+    : Math.round(state.currentSpeed);
+  document.getElementById('speed').textContent = displaySpeed;
+  document.getElementById('speed-unit').textContent = state.speedUnit === 'mph' ? 'MPH' : 'KM/H';
+
+  const limitDisplay = state.speedUnit === 'mph'
+    ? Math.round(state.speedLimit * 0.621371)
+    : state.speedLimit;
+  document.getElementById('speed-limit-display').textContent = `الحد: ${limitDisplay} ${state.speedUnit === 'mph' ? 'MPH' : 'كم/س'}`;
+
+  const speedEl = document.getElementById('speed');
+  if (displaySpeed > limitDisplay && state.speedLimit > 0) speedEl.classList.add('over-limit');
+  else speedEl.classList.remove('over-limit');
+
+  document.getElementById('gps-dot').classList.toggle('connected', state.gpsActive);
+  document.getElementById('bt-dot').classList.toggle('connected', state.btConnected || state.manualMode || state.demoActive);
+
+  document.getElementById('btn-gps').textContent = state.gpsActive ? '⏸ GPS' : '📍 GPS';
+  document.getElementById('btn-gps').classList.toggle('connected', state.gpsActive);
+  document.getElementById('btn-bluetooth').textContent = state.btConnected ? '✓ TPMS' : '🔗 TPMS';
+  document.getElementById('btn-bluetooth').classList.toggle('connected', state.btConnected);
+}
+
+function updateTireStatus(pos) {
+  const tireBox = document.getElementById(`tire-${pos}`);
+  const psi = state.tires[pos].psi;
+  tireBox.classList.remove('warning', 'danger');
+  if (psi == null) return;
+  const recommended = state.recommendedPSI;
+  const warnDelta = recommended * (state.warningThreshold / 100);
+  const dangerDelta = recommended * 0.20;
+  const diff = Math.abs(psi - recommended);
+  if (diff >= dangerDelta) tireBox.classList.add('danger');
+  else if (diff >= warnDelta) tireBox.classList.add('warning');
+}
+
+function updateClock() {
+  const d = new Date();
+  const h = d.getHours().toString().padStart(2,'0');
+  const m = d.getMinutes().toString().padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function toggleGPS() {
+  if (state.gpsActive) {
+    if (state.gpsWatchId != null) navigator.geolocation.clearWatch(state.gpsWatchId);
+    state.gpsWatchId = null;
+    state.gpsActive = false;
+    state.currentSpeed = 0;
+    render();
+    return;
+  }
+  if (!navigator.geolocation) {
+    alert('متصفحك لا يدعم GPS.');
+    return;
+  }
+  state.gpsWatchId = navigator.geolocation.watchPosition(
+    pos => {
+      const speedMs = pos.coords.speed;
+      if (speedMs != null && !isNaN(speedMs)) {
+        state.currentSpeed = Math.max(0, speedMs * 3.6);
+      } else {
+        state.currentSpeed = 0;
+      }
+      state.gpsActive = true;
+      render();
+    },
+    err => {
+      let msg = 'فشل الوصول إلى GPS:\n';
+      if (err.code === 1) msg += 'تم رفض الصلاحية. افتح إعدادات المتصفح واسمح بالموقع.';
+      else if (err.code === 2) msg += 'الموقع غير متاح. تأكد من تفعيل GPS من إعدادات الجهاز.';
+      else if (err.code === 3) msg += 'انتهت المهلة. حاول مرة أخرى في مكان مفتوح.';
+      else msg += err.message;
+      msg += '\n\nملاحظة: إذا فتحت الملف محلياً، قد ترفض الصلاحية. ارفع الملف على رابط https.';
+      alert(msg);
+      state.gpsActive = false;
+      render();
+    },
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+  );
+  state.gpsActive = true;
+  render();
+}
+
+async function connectBluetooth() {
+  if (state.btConnected && state.btDevice) {
+    try { state.btDevice.gatt.disconnect(); } catch(e) {}
+    state.btDevice = null;
+    state.btConnected = false;
+    render();
+    return;
+  }
+
+  if (!navigator.bluetooth) {
+    alert('متصفحك لا يدعم Web Bluetooth.\n\nاستخدم وضع المحاكاة أو الإدخال اليدوي من الإعدادات.');
+    return;
+  }
+
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ['battery_service', 'device_information',
+        '0000fbb0-0000-1000-8000-00805f9b34fb',
+        '000027a5-0000-1000-8000-00805f9b34fb'
+      ]
+    });
+    state.btDevice = device;
+    await device.gatt.connect();
+    state.btConnected = true;
+    device.addEventListener('gattserverdisconnected', () => {
+      state.btConnected = false;
+      render();
+    });
+    alert('تم الاتصال بـ ' + device.name + '\n\nملاحظة: بروتوكولات TPMS تختلف بين الشركات.');
+    render();
+  } catch (err) {
+    if (err.name !== 'NotFoundError') {
+      alert('خطأ في الاتصال: ' + err.message);
+    }
+  }
+}
+
+function toggleDemo() {
+  if (state.demoActive) {
+    if (state.demoInterval) { clearInterval(state.demoInterval); state.demoInterval = null; }
+    state.demoActive = false;
+    state.tires.fl.psi = null; state.tires.fr.psi = null;
+    state.tires.rl.psi = null; state.tires.rr.psi = null;
+    state.tires.fl.temp = null; state.tires.fr.temp = null;
+    state.tires.rl.temp = null; state.tires.rr.temp = null;
+    document.getElementById('btn-demo').textContent = 'تشغيل';
+    render();
+    return;
+  }
+  state.demoActive = true;
+  state.tires.fl.psi = 33; state.tires.fl.temp = 28;
+  state.tires.fr.psi = 32.5; state.tires.fr.temp = 29;
+  state.tires.rl.psi = 33.2; state.tires.rl.temp = 27;
+  state.tires.rr.psi = 28; state.tires.rr.temp = 35;
+  if (state.demoInterval) clearInterval(state.demoInterval);
+  state.demoInterval = setInterval(() => {
+    ['fl','fr','rl','rr'].forEach(p => {
+      state.tires[p].psi += (Math.random() - 0.5) * 0.3;
+      state.tires[p].temp += (Math.random() - 0.5) * 0.5;
+    });
+    render();
+  }, 2000);
+  document.getElementById('btn-demo').textContent = 'إيقاف';
+  render();
+}
+
+function openSettings() { document.getElementById('settings-modal').classList.add('open'); }
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+function setPressureUnit(unit) {
+  state.pressureUnit = unit;
+  document.querySelectorAll('#unit-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.unit === unit);
+  });
+  if (state.manualMode) {
+    ['fl','fr','rl','rr'].forEach(pos => {
+      document.querySelector(`[data-tire="${pos}"]`).innerHTML = '';
+    });
+  }
+  saveSettings();
+  render();
+}
+
+function setSpeedUnit(unit) {
+  state.speedUnit = unit;
+  document.querySelectorAll('#speed-unit-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.sunit === unit);
+  });
+  saveSettings();
+  render();
+}
+
+function setTheme(theme) {
+  state.theme = theme;
+  document.body.classList.remove('day', 'night', 'bright');
+  document.body.classList.add(theme);
+  ['night','day','bright'].forEach(t => {
+    document.getElementById('theme-' + t).classList.toggle('active', t === theme);
+  });
+  saveSettings();
+}
+
+function toggleManualMode() {
+  state.manualMode = !state.manualMode;
+  if (state.manualMode) {
+    ['fl','fr','rl','rr'].forEach(pos => {
+      if (state.tires[pos].psi == null) state.tires[pos].psi = state.recommendedPSI;
+    });
+    document.getElementById('btn-manual').textContent = 'إيقاف';
+  } else {
+    document.getElementById('btn-manual').textContent = 'تفعيل';
+    ['fl','fr','rl','rr'].forEach(pos => {
+      document.querySelector(`[data-tire="${pos}"]`).innerHTML = '';
+    });
+  }
+  render();
+}
+
+document.getElementById('btn-gps').addEventListener('click', toggleGPS);
+document.getElementById('btn-bluetooth').addEventListener('click', connectBluetooth);
+document.getElementById('btn-settings').addEventListener('click', openSettings);
+document.getElementById('btn-close-settings').addEventListener('click', closeSettings);
+document.getElementById('btn-manual').addEventListener('click', toggleManualMode);
+document.getElementById('btn-demo').addEventListener('click', toggleDemo);
+
+document.querySelectorAll('#unit-toggle button').forEach(b => {
+  b.addEventListener('click', () => setPressureUnit(b.dataset.unit));
+});
+document.querySelectorAll('#speed-unit-toggle button').forEach(b => {
+  b.addEventListener('click', () => setSpeedUnit(b.dataset.sunit));
+});
+document.getElementById('theme-night').addEventListener('click', () => setTheme('night'));
+document.getElementById('theme-day').addEventListener('click', () => setTheme('day'));
+document.getElementById('theme-bright').addEventListener('click', () => setTheme('bright'));
+
+document.getElementById('recommended-pressure').addEventListener('change', e => {
+  state.recommendedPSI = parseFloat(e.target.value) || 33;
+  saveSettings();
+  render();
+});
+document.getElementById('warning-threshold').addEventListener('change', e => {
+  state.warningThreshold = parseFloat(e.target.value) || 10;
+  saveSettings();
+  render();
+});
+document.getElementById('speed-limit').addEventListener('change', e => {
+  state.speedLimit = parseFloat(e.target.value) || 120;
+  saveSettings();
+  render();
+});
+
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target.id === 'settings-modal') closeSettings();
+});
+
+// Apply saved theme on load
+setTheme(state.theme);
+document.getElementById('recommended-pressure').value = state.recommendedPSI;
+document.getElementById('warning-threshold').value = state.warningThreshold;
+document.getElementById('speed-limit').value = state.speedLimit;
+document.querySelectorAll('#unit-toggle button').forEach(b => {
+  b.classList.toggle('active', b.dataset.unit === state.pressureUnit);
+});
+document.querySelectorAll('#speed-unit-toggle button').forEach(b => {
+  b.classList.toggle('active', b.dataset.sunit === state.speedUnit);
+});
+
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (e) {}
+}
+document.addEventListener('click', requestWakeLock, { once: true });
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && wakeLock === null) requestWakeLock();
+});
+
+render();
+</script>
+</body>
+</html>
